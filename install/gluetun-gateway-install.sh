@@ -153,8 +153,8 @@ VXLAN_PREFIX=${VXLAN_PREFIX}
 
 # ---- VPN provider credentials (FILL THESE IN) ----
 # Gluetun supports many providers (AirVPN, Cyberghost, Mullvad, NordVPN,
-# Private Internet Access, Surfshark, Windscribe, "custom", and more). See the
-# required variables for each provider here:
+# Private Internet Access, ProtonVPN, Surfshark, Windscribe, "custom", and
+# more). See the required variables for each provider here:
 #   https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers
 #
 # Set the provider and tunnel type, then fill in the matching credentials.
@@ -174,8 +174,8 @@ WIREGUARD_PRIVATE_KEY=
 SERVER_COUNTRIES=
 
 # ---- NAT-PMP port forwarding (only for providers that support it) ----
-# Supported by only some providers (see the Gluetun wiki). Set to off if your
-# provider does not offer port forwarding.
+# Supported by only some providers (e.g. Private Internet Access, ProtonVPN,
+# PrivateVPN, Perfect Privacy). Set to off if your provider does not offer it.
 VPN_PORT_FORWARDING=on
 VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/forwarded_port
 
