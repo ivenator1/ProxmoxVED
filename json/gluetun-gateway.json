@@ -12,7 +12,7 @@
   "documentation": "https://github.com/qdm12/gluetun-wiki",
   "website": "https://github.com/qdm12/gluetun",
   "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/gluetun.webp",
-  "description": "Gluetun configured as a VPN gateway/router for other LXCs on a shared VXLAN. Routes all client internet traffic through a ProtonVPN WireGuard tunnel with a kill switch, tunneled DNS, and NAT-PMP port forwarding.",
+  "description": "Gluetun configured as a VPN gateway/router for other LXCs on a shared VXLAN. Routes all client internet traffic through the WireGuard or OpenVPN tunnel of any Gluetun-supported provider, with a kill switch, tunneled DNS, and NAT-PMP port forwarding.",
   "install_methods": [
     {
       "type": "default",
@@ -37,7 +37,7 @@
       "type": "warning"
     },
     {
-      "text": "Edit /etc/gluetun/gluetun.env: set WIREGUARD_PRIVATE_KEY (ProtonVPN, Moderate NAT enabled); adjust CLIENT_SUBNET/GATEWAY_IP if needed, then run: systemctl restart gluetun-gateway-net && systemctl restart gluetun.",
+      "text": "Edit /etc/gluetun/gluetun.env: set VPN_SERVICE_PROVIDER, VPN_TYPE and the matching credentials (e.g. WIREGUARD_PRIVATE_KEY); adjust CLIENT_SUBNET/GATEWAY_IP if needed, then run: systemctl restart gluetun-gateway-net && systemctl restart gluetun.",
       "type": "warning"
     },
     {

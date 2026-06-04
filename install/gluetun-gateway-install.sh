@@ -62,9 +62,9 @@ cat <<EOF >/etc/gluetun/gluetun.env
 #  Gluetun Gateway - configuration
 # ============================================================================
 #  This LXC is a VPN gateway/router for other LXCs on a shared VXLAN.
-#  All client internet traffic is routed out through the ProtonVPN WireGuard
-#  tunnel. If the tunnel drops, client internet is blocked (kill switch);
-#  client LAN access is unaffected.
+#  All client internet traffic is routed out through the VPN tunnel of your
+#  chosen provider. If the tunnel drops, client internet is blocked (kill
+#  switch); client LAN access is unaffected.
 #
 #  After editing this file:
 #      systemctl restart gluetun-gateway-net && systemctl restart gluetun
@@ -84,7 +84,7 @@ cat <<EOF >/etc/gluetun/gluetun.env
 #
 #  This gateway assigns GATEWAY_IP to that interface itself, so it works even
 #  before the VXLAN vnet is wired. The container keeps its default route on
-#  eth0 (needed to reach ProtonVPN); eth1 only receives an address.
+#  eth0 (needed to reach the VPN provider); eth1 only receives an address.
 #
 # ----------------------------------------------------------------------------
 #  2) CONFIGURING A CLIENT LXC (two interfaces)
@@ -151,16 +151,31 @@ GATEWAY_IP=${GATEWAY_IP}
 VXLAN_IFACE=${VXLAN_IFACE}
 VXLAN_PREFIX=${VXLAN_PREFIX}
 
-# ---- ProtonVPN WireGuard credentials (FILL THESE IN) ----
-VPN_SERVICE_PROVIDER=protonvpn
+# ---- VPN provider credentials (FILL THESE IN) ----
+# Gluetun supports many providers (AirVPN, Cyberghost, Mullvad, NordVPN,
+# Private Internet Access, Surfshark, Windscribe, "custom", and more). See the
+# required variables for each provider here:
+#   https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers
+#
+# Set the provider and tunnel type, then fill in the matching credentials.
+VPN_SERVICE_PROVIDER=
 VPN_TYPE=wireguard
-# Your ProtonVPN WireGuard private key (generate in the Proton account portal
-# with "Moderate NAT" enabled). 32-byte base64 string.
+
+# WireGuard (VPN_TYPE=wireguard): set your private key, plus addresses if your
+# provider requires them.
 WIREGUARD_PRIVATE_KEY=
+#WIREGUARD_ADDRESSES=10.2.0.2/32
+
+# OpenVPN (VPN_TYPE=openvpn): comment out the WireGuard key above and use these.
+#OPENVPN_USER=
+#OPENVPN_PASSWORD=
+
 # Optional server selection, e.g. SERVER_COUNTRIES=Netherlands
 SERVER_COUNTRIES=
 
-# ---- NAT-PMP port forwarding ----
+# ---- NAT-PMP port forwarding (only for providers that support it) ----
+# Supported by only some providers (see the Gluetun wiki). Set to off if your
+# provider does not offer port forwarding.
 VPN_PORT_FORWARDING=on
 VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/forwarded_port
 
@@ -262,7 +277,7 @@ EOF
 
 cat <<EOF >/etc/systemd/system/gluetun.service
 [Unit]
-Description=Gluetun Gateway (ProtonVPN WireGuard)
+Description=Gluetun Gateway (VPN router)
 After=network.target gluetun-gateway-net.service
 Wants=gluetun-gateway-net.service
 
