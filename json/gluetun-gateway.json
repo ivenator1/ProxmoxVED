@@ -1,0 +1,52 @@
+{
+  "name": "Gluetun Gateway",
+  "slug": "gluetun-gateway",
+  "categories": [
+    4
+  ],
+  "date_created": "2026-06-04",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": 8000,
+  "documentation": "https://github.com/qdm12/gluetun-wiki",
+  "website": "https://github.com/qdm12/gluetun",
+  "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/gluetun.webp",
+  "description": "Gluetun configured as a VPN gateway/router for other LXCs on a shared VXLAN. Routes all client internet traffic through a ProtonVPN WireGuard tunnel with a kill switch, tunneled DNS, and NAT-PMP port forwarding.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/gluetun-gateway.sh",
+      "config_path": "/etc/gluetun/gluetun.env",
+      "resources": {
+        "cpu": 2,
+        "ram": 2048,
+        "hdd": 8,
+        "os": "Debian",
+        "version": "13"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "notes": [
+    {
+      "text": "The builder only creates net0 (WAN/uplink). Add the VXLAN NIC on the host with NO IP: pct set <ctid> -net1 name=eth1,bridge=<vxlan-vnet>. The script prompts for the subnet/gateway IP and assigns eth1 itself (works even before the VXLAN is wired).",
+      "type": "warning"
+    },
+    {
+      "text": "Edit /etc/gluetun/gluetun.env: set WIREGUARD_PRIVATE_KEY (ProtonVPN, Moderate NAT enabled); adjust CLIENT_SUBNET/GATEWAY_IP if needed, then run: systemctl restart gluetun-gateway-net && systemctl restart gluetun.",
+      "type": "warning"
+    },
+    {
+      "text": "Client LXCs need a VXLAN NIC (default gateway = this LXC), a LAN NIC with no default gateway, DNS pointed here, and the RA/DHCP default-gateway suppressed on the LAN interface.",
+      "type": "info"
+    },
+    {
+      "text": "Forwarded port: file /gluetun/forwarded_port, or GET http://<ip>:8000/v1/portforward.",
+      "type": "info"
+    }
+  ]
+}
