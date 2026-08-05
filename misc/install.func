@@ -1424,7 +1424,11 @@ EOF
   # Create update script
   # Use var_os for OS-based containers, otherwise use app name
   local update_script_name="${var_os:-$app}"
-  echo "bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/ct/${update_script_name}.sh)\"" >/usr/bin/update
+  cat <<EOF >/usr/bin/update
+#!/usr/bin/env bash
+export COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL}"
+bash -c "\$(curl -fsSL \"\$COMMUNITY_SCRIPTS_URL/ct/${update_script_name}.sh\")"
+EOF
   chmod +x /usr/bin/update
 
   # Inject SSH authorized keys if provided
