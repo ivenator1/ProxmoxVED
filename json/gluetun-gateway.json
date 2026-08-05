@@ -45,7 +45,7 @@
       "type": "info"
     },
     {
-      "text": "Forwarded port: file /gluetun/forwarded_port, or GET http://<ip>:8000/v1/portforward.",
+      "text": "Read-only API: GET http://<ip>:8000/v1/portforward for the forwarded port and GET http://<ip>:8000/v1/vpn/status for VPN monitoring.",
       "type": "info"
     }
   ]

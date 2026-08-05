@@ -142,8 +142,9 @@ cat <<EOF >/etc/gluetun/gluetun.env
 #  3) GETTING THE FORWARDED PORT (clients)
 # ----------------------------------------------------------------------------
 #    File : /gluetun/forwarded_port on this gateway
-#    HTTP : GET http://<this-gateway-ip>:8000/v1/portforward
-#           (only this endpoint is public; other control routes need an API key)
+#    Port : GET http://<this-gateway-ip>:8000/v1/portforward
+#    VPN  : GET http://<this-gateway-ip>:8000/v1/vpn/status
+#           (these read-only endpoints are public; other routes require auth)
 #
 # ============================================================================
 
@@ -215,8 +216,8 @@ msg_ok "Configured Gluetun Gateway"
 msg_info "Locking down Control Server"
 cat <<EOF >/opt/gluetun-data/auth/config.toml
 [[roles]]
-name = "clients-portforward"
-routes = ["GET /v1/portforward"]
+name = "clients-readonly"
+routes = ["GET /v1/portforward", "GET /v1/vpn/status"]
 auth = "none"
 EOF
 msg_ok "Locked down Control Server"
