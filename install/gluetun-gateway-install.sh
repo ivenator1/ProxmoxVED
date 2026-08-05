@@ -15,14 +15,15 @@ update_os
 
 msg_info "Installing Dependencies"
 $STD apt install -y \
+  openvpn \
   wireguard-tools \
-  iptables \
-  dnsmasq
+  iptables
 msg_ok "Installed Dependencies"
 
 msg_info "Configuring iptables"
 $STD update-alternatives --set iptables /usr/sbin/iptables-legacy
 $STD update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+ln -sf /usr/sbin/openvpn /usr/sbin/openvpn2.6
 msg_ok "Configured iptables"
 
 setup_go
@@ -43,9 +44,9 @@ ln -sf /opt/gluetun-data /gluetun
 
 # Ask for the VXLAN client-side network. Defaults keep non-interactive installs
 # working; everything can be changed later in /etc/gluetun/gluetun.env.
-CLIENT_SUBNET=$(prompt_input "VXLAN client subnet (CIDR)" "10.10.10.0/24")
-GATEWAY_IP=$(prompt_input "This gateway's IP on the VXLAN" "10.10.10.1")
-VXLAN_IFACE=$(prompt_input "VXLAN interface name" "eth1")
+CLIENT_SUBNET="${CLIENT_SUBNET:-$(prompt_input "VXLAN client subnet (CIDR)" "10.10.10.0/24")}"
+GATEWAY_IP="${GATEWAY_IP:-$(prompt_input "This gateway's IP on the VXLAN" "10.10.10.1")}"
+VXLAN_IFACE="${VXLAN_IFACE:-$(prompt_input "VXLAN interface name" "eth1")}"
 VXLAN_PREFIX="${CLIENT_SUBNET##*/}"
 
 msg_info "Enabling IP Forwarding"
@@ -67,7 +68,8 @@ cat <<EOF >/etc/gluetun/gluetun.env
 #  switch); client LAN access is unaffected.
 #
 #  After editing this file:
-#      systemctl restart gluetun-gateway-net && systemctl restart gluetun
+#      systemctl restart gluetun-gateway-net
+#      systemctl enable --now gluetun gluetun-watchdog.timer
 #
 #  Handy symlinks in this user's home directory:
 #      ~/config.env      -> this file (/etc/gluetun/gluetun.env)
@@ -185,11 +187,21 @@ FIREWALL_ENABLED_DISABLING_IT_SHOOTS_YOU_IN_YOUR_FOOT=on
 FIREWALL_OUTBOUND_SUBNETS=${CLIENT_SUBNET}
 
 # ---- DNS (clients point here; queries go out via the tunnel) ----
-DOT=on
+DNS_SERVER=on
 DNS_UPSTREAM_RESOLVERS=cloudflare
 
 # ---- Control server (forwarded-port API on :8000) ----
 HTTP_CONTROL_SERVER_ADDRESS=:8000
+
+# ---- Bare-metal runtime defaults normally supplied by Gluetun's image ----
+PUID=0
+PGID=0
+HTTPPROXY=off
+SHADOWSOCKS=off
+PPROF_ENABLED=no
+PPROF_BLOCK_PROFILE_RATE=0
+PPROF_MUTEX_PROFILE_RATE=0
+PPROF_HTTP_SERVER_ADDRESS=:6060
 
 # ---- Health / state ----
 HEALTH_SERVER_ADDRESS=127.0.0.1:9999
@@ -230,34 +242,30 @@ if [ -n "$VXLAN_IFACE" ] && ip link show "$VXLAN_IFACE" >/dev/null 2>&1; then
   ip link set "$VXLAN_IFACE" up
 fi
 
+# Gluetun's DNS server only listens on 127.0.0.1:53. Allow client packets
+# DNATed to loopback, avoiding a second DNS daemon and keeping all upstream DNS
+# inside Gluetun's encrypted resolver.
+if [ -n "$VXLAN_IFACE" ] && ip link show "$VXLAN_IFACE" >/dev/null 2>&1; then
+  sysctl -qw "net.ipv4.conf.${VXLAN_IFACE}.route_localnet=1"
+fi
+
 # Gluetun applies these AFTER building its own firewall and re-applies them on
 # every (re)connect, so they only ever exist while the tunnel is up.
 mkdir -p /iptables
 cat >/iptables/post-rules.txt <<RULES
-iptables -A INPUT -s ${CLIENT_SUBNET} -p udp --dport 53 -j ACCEPT
-iptables -A INPUT -s ${CLIENT_SUBNET} -p tcp --dport 53 -j ACCEPT
-iptables -A INPUT -s ${CLIENT_SUBNET} -p tcp --dport 8000 -j ACCEPT
-iptables -A FORWARD -s ${CLIENT_SUBNET} -o tun0 -j ACCEPT
-iptables -A FORWARD -d ${CLIENT_SUBNET} -i tun0 -j ACCEPT
+iptables -t nat -A PREROUTING -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:53
+iptables -t nat -A PREROUTING -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -p tcp --dport 53 -j DNAT --to-destination 127.0.0.1:53
+iptables -A INPUT -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -p udp --dport 53 -j ACCEPT
+iptables -A INPUT -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -p tcp --dport 53 -j ACCEPT
+iptables -A INPUT -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -p tcp --dport 8000 -j ACCEPT
+iptables -A FORWARD -i ${VXLAN_IFACE} -s ${CLIENT_SUBNET} -o tun0 -j ACCEPT
+iptables -A FORWARD -o ${VXLAN_IFACE} -d ${CLIENT_SUBNET} -i tun0 -j ACCEPT
 iptables -t nat -A POSTROUTING -s ${CLIENT_SUBNET} -o tun0 -j MASQUERADE
 RULES
 EOF
 chmod +x /usr/local/bin/gluetun-gateway-up
 /usr/local/bin/gluetun-gateway-up
 msg_ok "Created Gateway Networking Helper"
-
-msg_info "Configuring DNS Forwarder"
-cat <<EOF >/etc/dnsmasq.d/gluetun-gateway.conf
-# Serve DNS on the VXLAN interface and forward to Gluetun's local DoT resolver
-# (127.0.0.1:53), which sends queries upstream encrypted through the tunnel.
-bind-dynamic
-interface=${VXLAN_IFACE}
-no-resolv
-server=127.0.0.1
-cache-size=1000
-EOF
-systemctl restart dnsmasq
-msg_ok "Configured DNS Forwarder"
 
 msg_info "Creating Service"
 cat <<EOF >/etc/systemd/system/gluetun-gateway-net.service
@@ -295,7 +303,8 @@ AmbientCapabilities=CAP_NET_ADMIN
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable -q --now gluetun-gateway-net gluetun
+systemctl enable -q gluetun-gateway-net
+systemctl start gluetun-gateway-net
 msg_ok "Created Service"
 
 msg_info "Creating Watchdog"
@@ -320,7 +329,6 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 EOF
-systemctl enable -q --now gluetun-watchdog.timer
 msg_ok "Created Watchdog"
 
 msg_info "Creating Convenience Symlinks"

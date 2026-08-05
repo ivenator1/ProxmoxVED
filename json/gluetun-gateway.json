@@ -37,7 +37,7 @@
       "type": "warning"
     },
     {
-      "text": "Edit /etc/gluetun/gluetun.env: set VPN_SERVICE_PROVIDER, VPN_TYPE and the matching credentials (e.g. WIREGUARD_PRIVATE_KEY); adjust CLIENT_SUBNET/GATEWAY_IP if needed, then run: systemctl restart gluetun-gateway-net && systemctl restart gluetun.",
+      "text": "Edit /etc/gluetun/gluetun.env: set VPN_SERVICE_PROVIDER, VPN_TYPE and the matching credentials (e.g. WIREGUARD_PRIVATE_KEY); adjust CLIENT_SUBNET/GATEWAY_IP if needed, then restart gluetun-gateway-net and run: systemctl enable --now gluetun gluetun-watchdog.timer.",
       "type": "warning"
     },
     {
